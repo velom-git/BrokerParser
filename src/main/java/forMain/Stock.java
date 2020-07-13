@@ -24,7 +24,4 @@ public class Stock {
 
     private String date;
 
-    public Stock() {
-    }
-
 }

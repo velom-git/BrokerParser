@@ -18,7 +18,7 @@ public class Parser {
     List<String> name = new ArrayList<>();
     List<Double> cost = new ArrayList<>();
 
-    private void getElement(String url, int k) {
+    private void getElements(String url, int k) {
         try {
             Document page = Jsoup.connect(url).timeout(4000).get();
             Element table = page.select("table[class=simple-little-table trades-table]").first();
@@ -47,17 +47,17 @@ public class Parser {
 
     }
 
-    public void start() {
+    public void addEntities() {
 
         String toDay = new SimpleDateFormat("d.MM").format(new Date());  // получаем сегодняшний день
-        Session sessionCheck = HibernateUtil.getSessionFactory().openSession();
 
-        if (sessionCheck.createNativeQuery("SELECT * FROM stock WHERE date = " + toDay, Stock.class).getResultList().isEmpty()) {  // убеждаемся в отсутствии данных за текущую дату
+        Session session = HibernateUtil.getSessionFactory().openSession();
 
-            getElement("https://smart-lab.ru/q/usa/", 15);
-            getElement("https://smart-lab.ru/q/shares/", 19);
+        if (session.createNativeQuery("SELECT * FROM stock WHERE date = " + toDay, Stock.class).getResultList().isEmpty()) {  // убеждаемся в отсутствии данных за текущую дату
 
-            Session session = null;
+            getElements("https://smart-lab.ru/q/usa/", 15);
+            getElements("https://smart-lab.ru/q/shares/", 19);
+
             try {
                 for (int i = 0; i < name.size(); i++) {
                     session = HibernateUtil.getSessionFactory().openSession();  // открытие сессии. главная строка для гибернейта
@@ -75,11 +75,9 @@ public class Parser {
                 ChatBot.sendMassage("Ошибка при добавлении данных в БД");
             }
         } else {
-           ChatBot.sendMassage("Повторная дата");
-           sessionCheck.close();
+            ChatBot.sendMassage("Повторная дата");
+            session.close();
         }
-        
     }
-    
-    
+
 }

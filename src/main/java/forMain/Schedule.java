@@ -14,19 +14,19 @@ public class Schedule {
     @Autowired
     private Parser parser;
     @Autowired
-    private ForBD forBD;
+    private WorkingWithBD workingWithBD;
 
-    @Scheduled(cron = "0 50 21 * * MON-FRI", zone = "Europe/Moscow")
+    @Scheduled(cron = "0 30 15 * * MON-FRI", zone = "Europe/Moscow")
     public void scheduledMethod() {
         try {
             new TelegramBotsApi().registerBot(new ChatBot());
-            parser.start();
-            forBD.getCompany();
+            parser.addEntities(); // отвечает за парсинг страницы и добавления информации в БД
+            workingWithBD.getCompaniesNames(); // получаем 2 списка с названиями кампаний, которые были в торгах сегодня и 7 дней назад
+            workingWithBD.mathAndSend();  // высчитываем дельту и отправляем список нужных кампаний в телегу
 
         } catch (TelegramApiRequestException e) {
             e.printStackTrace();
         }
-
-
     }
+
 }

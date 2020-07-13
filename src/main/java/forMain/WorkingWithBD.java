@@ -9,25 +9,22 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Component
-public class ForBD {
+@SuppressWarnings("ALL")
+public class WorkingWithBD {
 
     private SessionFactory sessionFactory;
+    private Session session;
     private ArrayList<Double> arrayToDay = new ArrayList<>();
     private ArrayList<Double> arrayLastWeek = new ArrayList<>();
-    private ArrayList<Object> arrayList = new ArrayList<Object>();
+    private List<String> arrayList = new ArrayList<>();
     private TreeSet<String> treeSet = new TreeSet<>();
-    private boolean pusto = true;
-    private int r = 0;
+    private boolean isEmpty = true;
+    private int atATime = 0;
     private StringJoiner joiner;
+    private Calendar calendar = new GregorianCalendar();
 
-    public ForBD() {
-        sessionFactory = HibernateUtil.getSessionFactory();
-    }
+    public void getCompaniesNames() {
 
-    public void getCompany() {
-        Session session = sessionFactory.openSession();
-
-        Calendar calendar = new GregorianCalendar();
         String dToDay = new SimpleDateFormat("d").format(calendar.getTime());  // подготавливаем текущую дату для запроса в БД
         String mToDay = new SimpleDateFormat("MM").format(calendar.getTime());  // подготавливаем текущую дату для запроса в БД
         String fToDay = dToDay + "." + mToDay;
@@ -37,35 +34,43 @@ public class ForBD {
         String mLastWeek = new SimpleDateFormat("MM").format(calendar.getTime());  // подготавливаем старую дату для запроса в БД
         String fLastWeek = dLastWeek + "." + mLastWeek;
 
-        Query query = session.createNativeQuery("SELECT DISTINCT first.name FROM (SELECT name, date FROM stock WHERE date = " + fLastWeek + ") AS first LEFT JOIN (SELECT name, date FROM stock WHERE date = " + fToDay + ") AS second ON first.name = second.name WHERE first.date = " + fLastWeek + " AND second.date = " + fToDay);  // забираем все уникальные названия кампаний из БД
-        arrayList = (ArrayList<Object>) query.getResultList();
+        sessionFactory = HibernateUtil.getSessionFactory();
+        session = sessionFactory.openSession();
 
-        for (Object o : arrayList) {  // забираем стоимость за сегодня и 7 дней назад
+        Query query = session.createNativeQuery("SELECT DISTINCT first.name FROM (SELECT name, date FROM stock WHERE date = "
+                + fLastWeek + ") AS first JOIN (SELECT name, date FROM stock WHERE date = " + fToDay +
+                ") AS second ON first.name = second.name WHERE first.date = " + fLastWeek + " AND second.date = " + fToDay);  // забираем все уникальные названия кампаний из БД
+        arrayList = (ArrayList<String>) query.getResultList();
+
+        for (String o : arrayList) {  // забираем стоимость за сегодня и 7 дней назад
             arrayToDay.add(session.createNativeQuery("SELECT * FROM stock WHERE name = " + "'" + o + "'" +
                     " AND date = " + fToDay, Stock.class).getSingleResult().getCost());
             arrayLastWeek.add(session.createNativeQuery("SELECT * FROM stock where name = " + "'" + o + "'" +
                     " AND date = " + fLastWeek, Stock.class).getSingleResult().getCost());
-
         }
 
         session.close();
 
+    }
+
+    void mathAndSend() {
+
         for (int i = 0; i < arrayList.size(); i++) {
             if ((arrayToDay.get(i) / arrayLastWeek.get(i) * 100) > 115 || (arrayToDay.get(i) / arrayLastWeek.get(i) * 100) < 85) {
-                treeSet.add((String) arrayList.get(i));
-                pusto = false;
+                treeSet.add(arrayList.get(i));
+                isEmpty = false;
             }
-        }
+        }  // находим кампании, дельта которых составляет +-15%
 
-        joiner = new StringJoiner("%0A");
-        Iterator iterator = treeSet.iterator();
+        joiner = new StringJoiner("%0A");  //перевод строки в url кодировке
+        Iterator<String> iterator = treeSet.iterator();
 
         while (iterator.hasNext()) {
-            joiner.add((String) iterator.next());
-            r++;
-            if (r == 7) {  // разбиваем смски по 7 кампаний за раз
+            joiner.add(iterator.next());
+            atATime++;
+            if (atATime == 7) {  // разбиваем смски по 7 кампаний за раз
                 ChatBot.sendMassage(joiner.toString());
-                r = 0;
+                atATime = 0;
                 joiner = new StringJoiner("%0A");
                 try {
                     Thread.sleep(5000);
@@ -78,11 +83,9 @@ public class ForBD {
             }
         }
 
-        if (pusto) {
+        if (isEmpty) {
             ChatBot.sendMassage("Сегодня пусто");
         }
 
-
     }
-
 }
